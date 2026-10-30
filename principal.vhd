@@ -37,6 +37,7 @@ entity principal is
            algarismo : out STD_LOGIC_VECTOR (7 downto 0);
            btn_hour : in STD_LOGIC;
            btn_min : in STD_LOGIC;
+           wth_set    : in  STD_LOGIC;
            an7 : out STD_LOGIC;
            an6 : out STD_LOGIC;
            an5 : out STD_LOGIC;
@@ -58,8 +59,9 @@ architecture Behavioral of principal is
               Min_Tens   : OUT std_logic_vector(3 downto 0);
               Min_Units  : OUT std_logic_vector(3 downto 0);
               Sec_Tens   : OUT std_logic_vector(3 downto 0);
-              Sec_Units  : OUT std_logic_vector(3 downto 0)
-             );
+              Sec_Units  : OUT std_logic_vector(3 downto 0);
+              wth_set    : in  STD_LOGIC);
+              
         END COMPONENT;
         
     COMPONENT Conv_Displays
@@ -84,16 +86,28 @@ architecture Behavioral of principal is
     );
     END COMPONENT;
     
+    COMPONENT Button_Pulse
+    PORT( clk, reset : IN  std_logic;
+          btn_in     : IN  std_logic;
+          pulse      : OUT std_logic);
+    END COMPONENT;
+    
     signal h_t, h_u, m_t, m_u, s_t, s_u : std_logic_vector(3 downto 0);
-    signal d0, d1, d2, d3, d4, d5       : std_logic_vector(3 downto 0);
+    signal p_hour, p_min : std_logic;
         
 begin
+    bh : Button_Pulse
+        port map (clk => clk, reset => reset, btn_in => btn_hour, pulse => p_hour);
+
+    bm : Button_Pulse
+        port map (clk => clk, reset => reset, btn_in => btn_min, pulse => p_min);
 
     r : Watch_01
         port map (Reset => reset, CLK => clk,
+                  Inc_hour => p_hour, Inc_min => p_min,
                   Hour_Tens => h_t, Hour_Units => h_u,
                   Min_Tens  => m_t, Min_Units  => m_u,
-                  Sec_Tens  => s_t, Sec_Units  => s_u);
+                  Sec_Tens  => s_t, Sec_Units  => s_u, wth_set => wth_set);
 
 
     cd : conv_displays
