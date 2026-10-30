@@ -50,7 +50,7 @@ entity Conv_Displays is
            an1 : out STD_LOGIC;
            an0 : out STD_LOGIC;
            algarismo : out STD_LOGIC_VECTOR (7 downto 0));
-           inc_hour : 
+
 end Conv_Displays;
 
 architecture Behavioral of conv_displays is
