@@ -1,0 +1,73 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 27.10.2026 18:09:04
+-- Design Name: 
+-- Module Name: Button_Pulse - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+--use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity Button_Pulse is
+    Port ( clk, reset : in  STD_LOGIC;
+           btn_in     : in  STD_LOGIC;
+           pulse      : out STD_LOGIC);
+end Button_Pulse;
+
+architecture Behavioral of Button_Pulse is
+    constant DEBOUNCE_MAX : integer := 1_000_000;   -- 10 ms a 100 MHz
+    signal sync0, sync1   : std_logic := '0';
+    signal stable, prev   : std_logic := '0';
+    signal cnt            : integer range 0 to DEBOUNCE_MAX := 0;
+begin
+    process(clk, reset)
+    begin
+        if reset = '1' then
+            sync0 <= '0'; sync1 <= '0';
+            stable <= '0'; prev <= '0';
+            cnt <= 0;
+        elsif rising_edge(clk) then
+            sync0 <= btn_in;          -- sincronizador (2 flip-flops)
+            sync1 <= sync0;
+            if sync1 /= stable then   -- só aceita a mudança se durar 10 ms
+                if cnt = DEBOUNCE_MAX then
+                    stable <= sync1;
+                    cnt <= 0;
+                else
+                    cnt <= cnt + 1;
+                end if;
+            else
+                cnt <= 0;
+            end if;
+            prev <= stable;
+        end if;
+    end process;
+
+    pulse <= '1' when stable = '1' and prev = '0' else '0';   -- flanco ascendente
+end Behavioral;
