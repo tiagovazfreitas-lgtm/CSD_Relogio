@@ -22,22 +22,16 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
-
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
-
 entity principal is
     Port ( reset : in STD_LOGIC;
            clk : in STD_LOGIC;
-           algarismo : out STD_LOGIC_VECTOR (7 downto 0);
            btn_hour : in STD_LOGIC;
            btn_min : in STD_LOGIC;
-           wth_set    : in  STD_LOGIC;
+           wth_set : in STD_LOGIC;
+           sw_enable_timer : in STD_LOGIC;  --sw15 ativa a contagem 
+           sw_display_mux  : in STD_LOGIC; --sw14 vai servir para alternar entre o temporizador ou o relogio (display normal)
+           led_tomada : out STD_LOGIC;  --ld15 
+           algarismo : out STD_LOGIC_VECTOR (7 downto 0);
            an7 : out STD_LOGIC;
            an6 : out STD_LOGIC;
            an5 : out STD_LOGIC;
@@ -50,19 +44,18 @@ end principal;
 
 architecture Behavioral of principal is
     COMPONENT Watch_01
-        PORT( Reset      : IN  std_logic;
-              CLK        : IN  std_logic;
+        PORT( Reset : IN std_logic;
+              CLK : IN std_logic;
               Inc_hour : IN STD_LOGIC;
               Inc_min : IN STD_LOGIC;
-              Hour_Tens  : OUT std_logic_vector(3 downto 0);
+              Hour_Tens : OUT std_logic_vector(3 downto 0);
               Hour_Units : OUT std_logic_vector(3 downto 0);
-              Min_Tens   : OUT std_logic_vector(3 downto 0);
-              Min_Units  : OUT std_logic_vector(3 downto 0);
-              Sec_Tens   : OUT std_logic_vector(3 downto 0);
-              Sec_Units  : OUT std_logic_vector(3 downto 0);
-              wth_set    : in  STD_LOGIC);
-              
-        END COMPONENT;
+              Min_Tens : OUT std_logic_vector(3 downto 0);
+              Min_Units : OUT std_logic_vector(3 downto 0);
+              Sec_Tens : OUT std_logic_vector(3 downto 0);
+              Sec_Units : OUT std_logic_vector(3 downto 0);
+              wth_set : in STD_LOGIC);
+    END COMPONENT;
         
     COMPONENT Conv_Displays
     PORT(
@@ -87,14 +80,34 @@ architecture Behavioral of principal is
     END COMPONENT;
     
     COMPONENT Button_Pulse
-    PORT( clk, reset : IN  std_logic;
-          btn_in     : IN  std_logic;
+    PORT( clk, reset : IN std_logic;
+          btn_in     : IN std_logic;
           pulse      : OUT std_logic);
     END COMPONENT;
     
+    component Temporizador is
+    Port ( clk : in STD_LOGIC;
+           reset : in STD_LOGIC;
+           enable : in STD_LOGIC; 
+           inc_min : in STD_LOGIC; 
+           out_tomada : out STD_LOGIC; 
+           Timer_Min_Tens : out STD_LOGIC_VECTOR (3 downto 0);
+           Timer_Min_Units : out STD_LOGIC_VECTOR (3 downto 0);
+           Timer_Sec_Tens : out STD_LOGIC_VECTOR (3 downto 0);
+           Timer_Sec_Units : out STD_LOGIC_VECTOR (3 downto 0)
+         );
+    end component;
+    
+    -- Sinais para o relógio
     signal h_t, h_u, m_t, m_u, s_t, s_u : std_logic_vector(3 downto 0);
     signal p_hour, p_min : std_logic;
-        
+    
+    --Sinais para o temporizador
+    signal t_min_tens, t_min_units, t_sec_tens, t_sec_units : std_logic_vector(3 downto 0);
+    
+    --Sinais para o MUX
+    signal disp0_mux, disp1_mux, disp2_mux, disp3_mux, disp4_mux, disp5_mux : std_logic_vector(3 downto 0);
+       
 begin
     bh : Button_Pulse
         port map (clk => clk, reset => reset, btn_in => btn_hour, pulse => p_hour);
@@ -109,12 +122,33 @@ begin
                   Min_Tens  => m_t, Min_Units  => m_u,
                   Sec_Tens  => s_t, Sec_Units  => s_u, wth_set => wth_set);
 
+  temp : Temporizador 
+        port map(
+            clk             => clk, 
+            reset           => reset, 
+            enable          => sw_enable_timer, 
+            inc_min         => p_min, 
+            out_tomada      => led_tomada, 
+            Timer_Min_Tens  => t_min_tens, 
+            Timer_Min_Units => t_min_units,
+            Timer_Sec_Tens  => t_sec_tens,
+            Timer_Sec_Units => t_sec_units
+        );
 
-    cd : conv_displays
+    -- sw_display_mux = 0 passa a relogio
+    -- sw_display_mux = 1 passa a temporizador
+    disp5_mux <= h_t when sw_display_mux = '0' else t_min_tens;
+    disp4_mux <= h_u when sw_display_mux = '0' else t_min_units;
+    disp3_mux <= m_t when sw_display_mux = '0' else t_sec_tens;
+    disp2_mux <= m_u when sw_display_mux = '0' else t_sec_units;
+    disp1_mux <= s_t when sw_display_mux = '0' else "0000"; 
+    disp0_mux <= s_u when sw_display_mux = '0' else "0000"; 
+
+    cd : Conv_Displays
         port map (reset => reset, clk => clk,
-                  display0 => s_u, display1 => s_t,
-                  display2 => m_u, display3 => m_t,
-                  display4 => h_u, display5 => h_t,
+                  display0 => disp0_mux, display1 => disp1_mux,
+                  display2 => disp2_mux, display3 => disp3_mux,
+                  display4 => disp4_mux, display5 => disp5_mux,
                   algarismo => algarismo,
                   an7 => an7, an6 => an6, an5 => an5, an4 => an4,
                   an3 => an3, an2 => an2, an1 => an1, an0 => an0);
