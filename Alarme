@@ -1,0 +1,103 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity Alarme is
+    Port ( clk              : in  STD_LOGIC;
+           reset            : in  STD_LOGIC;
+           Hour_Tens        : in  STD_LOGIC_VECTOR (3 downto 0);
+           Hour_Units       : in  STD_LOGIC_VECTOR (3 downto 0);
+           wth_set          : in  STD_LOGIC;   -- '1' = modo de acerto do alarme
+           Inc_hour         : in  STD_LOGIC;   -- pulso de 1 ciclo
+           Inc_min          : in  STD_LOGIC;   -- pulso de 1 ciclo
+           Min_Tens         : in  STD_LOGIC_VECTOR (3 downto 0);
+           Min_Units        : in  STD_LOGIC_VECTOR (3 downto 0);
+           pulso            : in  STD_LOGIC;   -- pulso de 1 ciclo por minuto
+           sw_alarm         : in  STD_LOGIC;   -- ativa o alarme
+           Alarm_out        : out STD_LOGIC;
+           Hour_Alarm_Tens  : out STD_LOGIC_VECTOR (3 downto 0);
+           Hour_Alarm_Units : out STD_LOGIC_VECTOR (3 downto 0);
+           Min_Alarm_Tens   : out STD_LOGIC_VECTOR (3 downto 0);
+           Min_Alarm_Units  : out STD_LOGIC_VECTOR (3 downto 0));
+end Alarme;
+
+architecture Behavioral of Alarme is
+
+    type estado_t is (IDLE, A_TOCAR);
+    signal st : estado_t := IDLE;
+
+    signal a_hour   : integer range 0 to 23 := 0;   -- hora do alarme
+    signal a_min    : integer range 0 to 59 := 0;   -- minuto do alarme
+    signal cur_hour : integer range 0 to 23;
+    signal cur_min  : integer range 0 to 59;
+
+    signal match, match_d : std_logic := '0';
+    signal ring_cnt       : integer range 0 to 59 := 0;  -- minutos a tocar
+
+begin
+
+    -- BCD de entrada -> inteiros
+    cur_hour <= to_integer(unsigned(Hour_Tens)) * 10 + to_integer(unsigned(Hour_Units));
+    cur_min  <= to_integer(unsigned(Min_Tens))  * 10 + to_integer(unsigned(Min_Units));
+
+    -- Comparador (combinatório)
+    match <= '1' when (cur_hour = a_hour and cur_min = a_min) else '0';
+
+    process (clk, reset)
+    begin
+        if reset = '1' then
+            a_hour   <= 0;
+            a_min    <= 0;
+            st       <= IDLE;
+            ring_cnt <= 0;
+            match_d  <= '0';
+        elsif rising_edge(clk) then
+            match_d <= match;
+
+            if wth_set = '1' then
+                -- Modo de acerto: o alarme não toca e os botões acertam a hora do alarme
+                st       <= IDLE;
+                ring_cnt <= 0;
+                if Inc_hour = '1' then
+                    if a_hour = 23 then a_hour <= 0;
+                    else a_hour <= a_hour + 1;
+                    end if;
+                end if;
+                if Inc_min = '1' then
+                    if a_min = 59 then a_min <= 0;
+                    else a_min <= a_min + 1;
+                    end if;
+                end if;
+            else
+                case st is
+                    when IDLE =>
+                        ring_cnt <= 0;
+                        -- dispara no flanco da coincidência
+                        if sw_alarm = '1' and match = '1' and match_d = '0' then
+                            st <= A_TOCAR;
+                        end if;
+
+                    when A_TOCAR =>
+                        if sw_alarm = '0' then
+                            st <= IDLE;                 -- desligado pelo switch
+                        elsif pulso = '1' then          -- passou 1 minuto
+                            if ring_cnt = 59 then
+                                st <= IDLE;             -- 1 hora completa
+                            else
+                                ring_cnt <= ring_cnt + 1;
+                            end if;
+                        end if;
+                end case;
+            end if;
+        end if;
+    end process;
+
+    -- Saída Moore: depende só do estado
+    Alarm_out <= '1' when st = A_TOCAR else '0';
+
+    -- Hora do alarme -> BCD
+    Hour_Alarm_Tens  <= std_logic_vector(to_unsigned(a_hour / 10,  4));
+    Hour_Alarm_Units <= std_logic_vector(to_unsigned(a_hour mod 10, 4));
+    Min_Alarm_Tens   <= std_logic_vector(to_unsigned(a_min  / 10,  4));
+    Min_Alarm_Units  <= std_logic_vector(to_unsigned(a_min  mod 10, 4));
+end Behavioral;
