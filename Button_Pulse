@@ -37,7 +37,8 @@ use IEEE.STD_LOGIC_1164.ALL;
 entity Button_Pulse is
     Port ( clk, reset : in  STD_LOGIC;
            btn_in     : in  STD_LOGIC;
-           pulse      : out STD_LOGIC);
+           pulse      : out STD_LOGIC;
+           estado     : out STD_LOGIC);
 end Button_Pulse;
 
 architecture Behavioral of Button_Pulse is
@@ -67,6 +68,11 @@ begin
             end if;
             prev <= stable;
         end if;
+    end process;
+
+    pulse <= '1' when stable = '1' and prev = '0' else '0';   -- flanco ascendente
+    estado <= stable;
+end Behavioral;
     end process;
 
     pulse <= '1' when stable = '1' and prev = '0' else '0';   -- flanco ascendente
