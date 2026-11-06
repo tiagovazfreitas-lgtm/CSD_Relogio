@@ -35,6 +35,7 @@ use IEEE.NUMERIC_STD.ALL;
 entity Conv_Displays is
     Port ( clk : in STD_LOGIC;
            reset : in STD_LOGIC;
+           blink_en  : in STD_LOGIC;
            display0 : in STD_LOGIC_VECTOR (3 downto 0);
            display1 : in STD_LOGIC_VECTOR (3 downto 0);
            display2 : in STD_LOGIC_VECTOR (3 downto 0);
@@ -57,6 +58,9 @@ architecture Behavioral of conv_displays is
 signal alg : integer range 0 to 9;
 signal cont_clock : integer range 0 to 599999;
 signal num_alg : std_logic_vector(2 downto 0);
+signal blink_cnt   : integer range 0 to 25000000 := 0; -- Cambia cada 0.25s
+signal blink_state : std_logic := '0';
+signal dp_temp : std_logic;
 
 begin
 
@@ -85,34 +89,28 @@ end process;
 an : process(clk, reset)
 begin
     if reset = '1' then
-        an7 <= '1';
-        an6 <= '1';
-        an5 <= '1';
-        an4 <= '1';
-        an3 <= '1';
-        an2 <= '1';
-        an1 <= '1';
-        an0 <= '1';
-        alg <= 0;
-        algarismo(7) <= '1';
-    elsif clk'event and clk = '1' then
         an7 <= '1'; an6 <= '1'; an5 <= '1'; an4 <= '1';
         an3 <= '1'; an2 <= '1'; an1 <= '1'; an0 <= '1';
-        algarismo(7) <= '1';
-        case num_alg is
-            when "000" => an0 <= '0'; alg <= to_integer(unsigned(display0));
-            when "001" => an1 <= '0'; alg <= to_integer(unsigned(display1));
-            when "010" => an2 <= '0'; alg <= to_integer(unsigned(display2));
-                          algarismo(7) <= '0';   -- ponto entre MM e SS
-            when "011" => an3 <= '0'; alg <= to_integer(unsigned(display3));
-            when "100" => an4 <= '0'; alg <= to_integer(unsigned(display4));
-                          algarismo(7) <= '0';   -- ponto entre HH e MM
-            when others => an5 <= '0'; alg <= to_integer(unsigned(display5));
-        end case;
-        
+        alg <= 0;
+        dp_temp <= '1';
+    elsif rising_edge(clk) then
+        an7 <= '1'; an6 <= '1'; an5 <= '1'; an4 <= '1';
+        an3 <= '1'; an2 <= '1'; an1 <= '1'; an0 <= '1';
+        dp_temp <= '1'; 
+        if (blink_en = '0') or (blink_state = '0') then
+            case num_alg is
+                when "000" => an0 <= '0'; alg <= to_integer(unsigned(display0));
+                when "001" => an1 <= '0'; alg <= to_integer(unsigned(display1));
+                when "010" => an2 <= '0'; alg <= to_integer(unsigned(display2));
+                              dp_temp <= '0';   
+                when "011" => an3 <= '0'; alg <= to_integer(unsigned(display3));
+                when "100" => an4 <= '0'; alg <= to_integer(unsigned(display4));
+                              dp_temp <= '0';   
+                when others => an5 <= '0'; alg <= to_integer(unsigned(display5));
+            end case;
+        end if;
      end if;
 end process;
-
 al : process(clk, reset)
 begin
     if reset = '1' then
@@ -133,4 +131,21 @@ begin
         end case;
      end if;
     end process;
+    
+    -- Blink no modo set_hour
+    process(clk, reset)
+begin
+    if reset = '1' then
+        blink_cnt <= 0;
+        blink_state <= '0';
+    elsif rising_edge(clk) then
+        if blink_cnt = 25000000 then -- 25 millones de ciclos = 0.25s
+            blink_cnt <= 0;
+            blink_state <= not blink_state;
+        else
+            blink_cnt <= blink_cnt + 1;
+        end if;
+    end if;
+end process;
+
 end Behavioral;
