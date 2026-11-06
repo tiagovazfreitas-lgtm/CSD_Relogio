@@ -7,13 +7,16 @@ entity Watch_01 is
            CLK        : in  STD_LOGIC;
            Inc_hour   : in  STD_LOGIC;
            Inc_min    : in  STD_LOGIC;
+           Hold_hour  : in  STD_LOGIC;
+           HOLD_min   : in  STD_LOGIC;
            Hour_Tens  : out STD_LOGIC_VECTOR (3 downto 0);
            Hour_Units : out STD_LOGIC_VECTOR (3 downto 0);
            Min_Tens   : out STD_LOGIC_VECTOR (3 downto 0);
            Min_Units  : out STD_LOGIC_VECTOR (3 downto 0);
            Sec_Tens   : out STD_LOGIC_VECTOR (3 downto 0);
            Sec_Units  : out STD_LOGIC_VECTOR (3 downto 0);
-           wth_set    : in  STD_LOGIC);
+           wth_set    : in  STD_LOGIC;
+           btn_fast   : in  STD_LOGIC); -- Entrada para o modo rápido (M18)
 end Watch_01;
 
 architecture Behavioral of Watch_01 is
@@ -22,8 +25,42 @@ architecture Behavioral of Watch_01 is
     signal count_min  : integer range 0 to 59 := 0;
     signal count_hour : integer range 0 to 23 := 0;
     signal seg_en, min_en, hour_en : std_logic;
+    signal fast_mode  : std_logic := '0';
+    signal fast_tick  : std_logic := '0';
+    signal fast_cnt   : integer range 0 to 8000000 := 0; 
+    signal btn_fast_prev : std_logic := '0';
 begin
 
+-- Alternar o fast mode (toggle) ao pulsar M18
+    process(CLK, Reset)
+    begin
+        if Reset = '1' then
+            fast_mode <= '0';
+            btn_fast_prev <= '0';
+        elsif rising_edge(CLK) then
+            btn_fast_prev <= btn_fast;
+            if btn_fast = '1' and btn_fast_prev = '0' then
+            fast_mode <= not fast_mode; -- Cambia o estado
+            end if;
+        end if;
+    end process;
+    
+-- Gerar pulso automatico cada 0.25seg
+    process(CLK, Reset)
+    begin
+        if Reset = '1' then
+            fast_cnt <= 0;
+            fast_tick <= '0';
+        elsif rising_edge(CLK) then
+            if fast_cnt = 8000000 then 
+                fast_cnt <= 0;
+                fast_tick <= '1';
+            else
+                fast_cnt <= fast_cnt + 1;
+                fast_tick <= '0';
+            end if;
+        end if;
+    end process;
 -- Segundos --
 
     process(CLK, Reset)
@@ -56,35 +93,38 @@ begin
         end if;
     end process;
 
--- Minutos --
-
-    process(CLK, Reset)
-    begin
-        if Reset = '1' then
-            count_min <= 0;
-        elsif rising_edge(CLK) then
-            if min_en = '1' or (Inc_min = '1' and wth_set = '1') then
-                if count_min = 59 then count_min <= 0;
-                else count_min <= count_min + 1;
-                end if;
+-- Minutos
+process(CLK, Reset)
+begin
+    if Reset = '1' then
+        count_min <= 0;
+    elsif rising_edge(CLK) then
+        if min_en = '1' then
+            if count_min = 59 then count_min <= 0; else count_min <= count_min + 1; end if;
+        elsif wth_set = '1' then
+            -- Se e um pulso normal (modo normal) OR se está presionado + tick (modo rápido)
+            if (Inc_min = '1' and fast_mode = '0') or (Hold_min = '1' and fast_mode = '1' and fast_tick = '1') then
+                if count_min = 59 then count_min <= 0; else count_min <= count_min + 1; end if;
             end if;
         end if;
-    end process;
+    end if;
+end process;
 
--- Horas --
-
-    process(CLK, Reset)
-    begin
-        if Reset = '1' then
-            count_hour <= 0;
-        elsif rising_edge(CLK) then
-            if hour_en = '1' or (Inc_hour = '1' and wth_set = '1') then
-                if count_hour = 23 then count_hour <= 0;
-                else count_hour <= count_hour + 1;
-                end if;
+-- Horas
+process(CLK, Reset)
+begin
+    if Reset = '1' then
+        count_hour <= 0;
+    elsif rising_edge(CLK) then
+        if hour_en = '1' then
+            if count_hour = 23 then count_hour <= 0; else count_hour <= count_hour + 1; end if;
+        elsif wth_set = '1' then
+            if (Inc_hour = '1' and fast_mode = '0') or (Hold_hour = '1' and fast_mode = '1' and fast_tick = '1') then
+                if count_hour = 23 then count_hour <= 0; else count_hour <= count_hour + 1; end if;
             end if;
         end if;
-    end process;
+    end if;
+end process;
 
     Sec_Tens   <= std_logic_vector(to_unsigned(count_seg / 10, 4));
     Sec_Units  <= std_logic_vector(to_unsigned(count_seg mod 10, 4));
