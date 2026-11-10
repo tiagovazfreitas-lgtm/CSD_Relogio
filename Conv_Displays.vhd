@@ -111,6 +111,7 @@ begin
         end if;
      end if;
 end process;
+
 al : process(clk, reset)
 begin
     if reset = '1' then
@@ -132,14 +133,13 @@ begin
      end if;
     end process;
     
-    -- Blink no modo set_hour
-    process(clk, reset)
+process(clk, reset)
 begin
     if reset = '1' then
         blink_cnt <= 0;
         blink_state <= '0';
     elsif rising_edge(clk) then
-        if blink_cnt = 25000000 then -- 25 millones de ciclos = 0.25s
+        if blink_cnt = 25000000 then
             blink_cnt <= 0;
             blink_state <= not blink_state;
         else
