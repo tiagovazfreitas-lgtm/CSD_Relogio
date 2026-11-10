@@ -73,7 +73,3 @@ begin
     pulse <= '1' when stable = '1' and prev = '0' else '0';   -- flanco ascendente
     estado <= stable;
 end Behavioral;
-    end process;
-
-    pulse <= '1' when stable = '1' and prev = '0' else '0';   -- flanco ascendente
-end Behavioral;
