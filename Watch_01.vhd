@@ -133,5 +133,7 @@ end process;
     Min_Units  <= std_logic_vector(to_unsigned(count_min mod 10, 4));
     Hour_Tens  <= std_logic_vector(to_unsigned(count_hour / 10, 4));
     Hour_Units <= std_logic_vector(to_unsigned(count_hour mod 10, 4));
+   
+Min_Pulse <= min_en;            
 
 end Behavioral;
