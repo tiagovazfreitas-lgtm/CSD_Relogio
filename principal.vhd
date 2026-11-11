@@ -12,10 +12,14 @@ entity principal is
            sw_alarm        : in  STD_LOGIC;   
            sw_enable_timer : in  STD_LOGIC;   --sw15 ativa a contagem 
            sw_display_mux  : in  STD_LOGIC;   --sw14 vai servir para alternar entre o temporizador ou o relogio (display normal)
+           sw_sel_crono    : in  STD_LOGIC;   -- switch para mostrar o ecra do crono
+           sw_crono_en     : in  STD_LOGIC;   -- switch para comecar a contagem
+           btn_crono_clear : in  STD_LOGIC;   -- crono a 0
            led_tomada      : out STD_LOGIC;   --ld15 
            led_alarme      : out STD_LOGIC;   --ld14
            algarismo       : out STD_LOGIC_VECTOR (7 downto 0);
            an7, an6, an5, an4, an3, an2, an1, an0 : out STD_LOGIC);
+           
 end principal;
 
 architecture Behavioral of principal is
@@ -84,6 +88,19 @@ architecture Behavioral of principal is
                Timer_Sec_Tens   : out STD_LOGIC_VECTOR (3 downto 0);
                Timer_Sec_Units  : out STD_LOGIC_VECTOR (3 downto 0));
     END COMPONENT;
+    
+    COMPONENT Cronometro
+        PORT ( clk              : in  STD_LOGIC;
+               reset            : in  STD_LOGIC;
+               enable           : in  STD_LOGIC;
+               clear_crono      : in  STD_LOGIC;
+               Crono_Min_Tens   : out STD_LOGIC_VECTOR (3 downto 0);
+               Crono_Min_Units  : out STD_LOGIC_VECTOR (3 downto 0);
+               Crono_Sec_Tens   : out STD_LOGIC_VECTOR (3 downto 0);
+               Crono_Sec_Units  : out STD_LOGIC_VECTOR (3 downto 0);
+               Crono_Cent_Tens  : out STD_LOGIC_VECTOR (3 downto 0);
+               Crono_Cent_Units : out STD_LOGIC_VECTOR (3 downto 0));
+    END COMPONENT;
 
     -- Sinais para o relógio e alarme
     signal h_t, h_u, m_t, m_u, s_t, s_u : std_logic_vector(3 downto 0);
@@ -94,6 +111,9 @@ architecture Behavioral of principal is
 
     -- Sinais para o temporizador
     signal t_min_tens, t_min_units, t_sec_tens, t_sec_units : std_logic_vector(3 downto 0);
+    
+    --Sinais para o Cronometro
+    signal cr_m_t, cr_m_u, cr_s_t, cr_s_u, cr_c_t, cr_c_u : std_logic_vector(3 downto 0);
 
     -- Modos (cada botão tem um só destino)
     signal mode_timer, mode_alarm, mode_clock : std_logic;
@@ -170,16 +190,30 @@ begin
                   out_tomada => led_tomada,
                   Timer_Min_Tens => t_min_tens, Timer_Min_Units => t_min_units,
                   Timer_Sec_Tens => t_sec_tens, Timer_Sec_Units => t_sec_units);
+    
+    crono_inst : Cronometro
+        port map (
+            clk => clk,
+            reset => reset,
+            enable => sw_crono_en,
+            clear_crono => btn_crono_clear,
+            Crono_Min_Tens => cr_m_t,
+            Crono_Min_Units => cr_m_u,
+            Crono_Sec_Tens => cr_s_t,
+            Crono_Sec_Units => cr_s_u,
+            Crono_Cent_Tens => cr_c_t,
+            Crono_Cent_Units => cr_c_u
+        );
 
     led_alarme <= alarm_out_s;
 
-    -- Mux do display: timer > alarme > relógio
-    d5 <= "0000"      when mode_timer = '1' else ha_t when mode_alarm = '1' else h_t;
-    d4 <= "0000"      when mode_timer = '1' else ha_u when mode_alarm = '1' else h_u;
-    d3 <= t_min_tens  when mode_timer = '1' else ma_t when mode_alarm = '1' else m_t;
-    d2 <= t_min_units when mode_timer = '1' else ma_u when mode_alarm = '1' else m_u;
-    d1 <= t_sec_tens  when mode_timer = '1' else "0000" when mode_alarm = '1' else s_t;
-    d0 <= t_sec_units when mode_timer = '1' else "0000" when mode_alarm = '1' else s_u;
+  -- Mux do display: timer > cronometro > alarme > relógio 
+    d5 <= "0000"      when mode_timer = '1' else cr_m_t when sw_sel_crono = '1' else ha_t when mode_alarm = '1' else h_t;
+    d4 <= "0000"      when mode_timer = '1' else cr_m_u when sw_sel_crono = '1' else ha_u when mode_alarm = '1' else h_u;
+    d3 <= t_min_tens  when mode_timer = '1' else cr_s_t when sw_sel_crono = '1' else ma_t when mode_alarm = '1' else m_t;
+    d2 <= t_min_units when mode_timer = '1' else cr_s_u when sw_sel_crono = '1' else ma_u when mode_alarm = '1' else m_u;
+    d1 <= t_sec_tens  when mode_timer = '1' else cr_c_t when sw_sel_crono = '1' else "0000" when mode_alarm = '1' else s_t;
+    d0 <= t_sec_units when mode_timer = '1' else cr_c_u when sw_sel_crono = '1' else "0000" when mode_alarm = '1' else s_u;
     blink_control <= w_set or mode_alarm or alarm_out_s;
 
     cd : Conv_Displays
