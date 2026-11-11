@@ -7,13 +7,13 @@ entity principal is
            btn_hour        : in  STD_LOGIC;
            btn_min         : in  STD_LOGIC;
            btn_fast        : in  STD_LOGIC;
-           wth_set         : in  STD_LOGIC;   -- acerto da hora atual
-           sw_sel_alarm    : in  STD_LOGIC;   -- modo alarme (mostra/acerta o alarme)
-           sw_alarm        : in  STD_LOGIC;   -- ativa o alarme
-           sw_enable_timer : in  STD_LOGIC;   -- sw15
-           sw_display_mux  : in  STD_LOGIC;   -- sw14: timer / relógio
-           led_tomada      : out STD_LOGIC;   -- ld15
-           led_alarme      : out STD_LOGIC;   -- ld14
+           wth_set         : in  STD_LOGIC;   
+           sw_sel_alarm    : in  STD_LOGIC;   
+           sw_alarm        : in  STD_LOGIC;   
+           sw_enable_timer : in  STD_LOGIC;   --sw15 ativa a contagem 
+           sw_display_mux  : in  STD_LOGIC;   --sw14 vai servir para alternar entre o temporizador ou o relogio (display normal)
+           led_tomada      : out STD_LOGIC;   --ld15 
+           led_alarme      : out STD_LOGIC;   --ld14
            algarismo       : out STD_LOGIC_VECTOR (7 downto 0);
            an7, an6, an5, an4, an3, an2, an1, an0 : out STD_LOGIC);
 end principal;
@@ -41,8 +41,7 @@ architecture Behavioral of principal is
     COMPONENT Conv_Displays
         PORT( clk, reset : IN std_logic;
               blink_en   : IN std_logic;
-              display0, display1, display2, display3, display4, display5
-                         : IN std_logic_vector(3 downto 0);
+              display0, display1, display2, display3, display4, display5 : IN std_logic_vector(3 downto 0);
               an7, an6, an5, an4, an3, an2, an1, an0 : OUT std_logic;
               algarismo  : OUT std_logic_vector(7 downto 0));
     END COMPONENT;
@@ -77,6 +76,7 @@ architecture Behavioral of principal is
         PORT ( clk, reset       : in  STD_LOGIC;
                enable           : in  STD_LOGIC;
                clear_timer      : in  STD_LOGIC;
+               add_5min         : in  STD_LOGIC;
                inc_min          : in  STD_LOGIC;
                out_tomada       : out STD_LOGIC;
                Timer_Min_Tens   : out STD_LOGIC_VECTOR (3 downto 0);
@@ -85,14 +85,14 @@ architecture Behavioral of principal is
                Timer_Sec_Units  : out STD_LOGIC_VECTOR (3 downto 0));
     END COMPONENT;
 
-    -- Relógio e alarme
+    -- Sinais para o relógio e alarme
     signal h_t, h_u, m_t, m_u, s_t, s_u : std_logic_vector(3 downto 0);
     signal ha_t, ha_u, ma_t, ma_u       : std_logic_vector(3 downto 0);
     signal p_hour, p_min, p_fast        : std_logic;
     signal h_hour, h_min                : std_logic;
     signal pulso_min, alarm_out_s       : std_logic;
 
-    -- Temporizador
+    -- Sinais para o temporizador
     signal t_min_tens, t_min_units, t_sec_tens, t_sec_units : std_logic_vector(3 downto 0);
 
     -- Modos (cada botão tem um só destino)
@@ -101,10 +101,12 @@ architecture Behavioral of principal is
     -- Sinais encaminhados
     signal w_inc_hour, w_inc_min, w_hold_hour, w_hold_min, w_fast, w_set : std_logic;
     signal a_inc_hour, a_inc_min : std_logic;
-    signal t_clear, t_inc_min    : std_logic;
+    signal t_clear, t_inc_min, preset_time : std_logic;
 
     -- Mux do display
     signal d0, d1, d2, d3, d4, d5 : std_logic_vector(3 downto 0);
+    
+    signal blink_control : std_logic;
 
 begin
 
@@ -134,6 +136,7 @@ begin
 
     t_clear     <= p_hour and mode_timer;
     t_inc_min   <= p_min  and mode_timer;
+    preset_time <= p_fast and mode_timer;
 
     r : Watch_01
         port map (Reset => reset, CLK => clk,
@@ -162,6 +165,7 @@ begin
         port map (clk => clk, reset => reset,
                   enable => sw_enable_timer,
                   clear_timer => t_clear,
+                  add_5min => preset_time,
                   inc_min => t_inc_min,
                   out_tomada => led_tomada,
                   Timer_Min_Tens => t_min_tens, Timer_Min_Units => t_min_units,
@@ -176,10 +180,11 @@ begin
     d2 <= t_min_units when mode_timer = '1' else ma_u when mode_alarm = '1' else m_u;
     d1 <= t_sec_tens  when mode_timer = '1' else "0000" when mode_alarm = '1' else s_t;
     d0 <= t_sec_units when mode_timer = '1' else "0000" when mode_alarm = '1' else s_u;
+    blink_control <= w_set or mode_alarm or alarm_out_s;
 
     cd : Conv_Displays
         port map (clk => clk, reset => reset,
-                  blink_en => (w_set or mode_alarm or alarm_out_s),
+                  blink_en => blink_control,
                   display0 => d0, display1 => d1, display2 => d2,
                   display3 => d3, display4 => d4, display5 => d5,
                   algarismo => algarismo,
