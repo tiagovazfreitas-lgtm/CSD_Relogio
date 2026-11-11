@@ -15,6 +15,7 @@ entity Watch_01 is
            Min_Units  : out STD_LOGIC_VECTOR (3 downto 0);
            Sec_Tens   : out STD_LOGIC_VECTOR (3 downto 0);
            Sec_Units  : out STD_LOGIC_VECTOR (3 downto 0);
+           Min_Pulse  : out STD_LOGIC;
            wth_set    : in  STD_LOGIC;
            btn_fast   : in  STD_LOGIC); -- Entrada para o modo rápido (M18)
 end Watch_01;
