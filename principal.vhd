@@ -2,22 +2,22 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
 entity principal is
-    Port ( reset           : in  STD_LOGIC;
-           clk             : in  STD_LOGIC;
-           btn_hour        : in  STD_LOGIC;
-           btn_min         : in  STD_LOGIC;
-           btn_fast        : in  STD_LOGIC;
-           wth_set         : in  STD_LOGIC;   
-           sw_sel_alarm    : in  STD_LOGIC;   
-           sw_alarm        : in  STD_LOGIC;   
-           sw_enable_timer : in  STD_LOGIC;   --sw15 ativa a contagem 
-           sw_display_mux  : in  STD_LOGIC;   --sw14 vai servir para alternar entre o temporizador ou o relogio (display normal)
-           sw_sel_crono    : in  STD_LOGIC;   -- switch para mostrar o ecra do crono
-           sw_crono_en     : in  STD_LOGIC;   -- switch para comecar a contagem
-           btn_crono_clear : in  STD_LOGIC;   -- crono a 0
-           led_tomada      : out STD_LOGIC;   --ld15 
-           led_alarme      : out STD_LOGIC;   --ld14
-           algarismo       : out STD_LOGIC_VECTOR (7 downto 0);
+    Port ( reset            : in  STD_LOGIC;
+           clk              : in  STD_LOGIC;
+           btn_hour         : in  STD_LOGIC;
+           btn_min          : in  STD_LOGIC;
+           btn_fast         : in  STD_LOGIC;
+           wth_set          : in  STD_LOGIC;   
+           sw_sel_alarm     : in  STD_LOGIC;   
+           sw_alarm         : in  STD_LOGIC;   
+           sw_enable_timer  : in  STD_LOGIC;   --sw15 ativa a contagem 
+           sw_display_mux   : in  STD_LOGIC;   --sw14 vai servir para alternar entre o temporizador ou o relogio (display normal)
+           sw_sel_crono     : in  STD_LOGIC;   -- switch para mostrar o ecra do crono
+           sw_crono_en      : in  STD_LOGIC;   -- switch para comecar a contagem
+           btn_crono_clear  : in  STD_LOGIC;   -- crono a 0
+           led_tomada       : out STD_LOGIC;   --ld15 
+           led_alarme       : out STD_LOGIC;   --ld14
+           algarismo        : out STD_LOGIC_VECTOR (7 downto 0);
            an7, an6, an5, an4, an3, an2, an1, an0 : out STD_LOGIC);
            
 end principal;
@@ -65,6 +65,9 @@ architecture Behavioral of principal is
                wth_set          : in  STD_LOGIC;
                Inc_hour         : in  STD_LOGIC;
                Inc_min          : in  STD_LOGIC;
+               Hold_hour        : in  STD_LOGIC;
+               Hold_min         : in  STD_LOGIC; 
+               btn_fast         : in  STD_LOGIC;
                Min_Tens         : in  STD_LOGIC_VECTOR (3 downto 0);
                Min_Units        : in  STD_LOGIC_VECTOR (3 downto 0);
                pulso            : in  STD_LOGIC;
@@ -120,9 +123,9 @@ architecture Behavioral of principal is
 
     -- Sinais encaminhados
     signal w_inc_hour, w_inc_min, w_hold_hour, w_hold_min, w_fast, w_set : std_logic;
-    signal a_inc_hour, a_inc_min : std_logic;
+    signal a_inc_hour, a_inc_min, a_fast_alarm : std_logic;
     signal t_clear, t_inc_min, preset_time : std_logic;
-
+    
     -- Mux do display
     signal d0, d1, d2, d3, d4, d5 : std_logic_vector(3 downto 0);
     
@@ -132,8 +135,8 @@ begin
 
     -- Seleção de modo (o timer tem prioridade sobre o alarme)
     mode_timer <= sw_display_mux;
-    mode_alarm <= sw_sel_alarm and (not sw_display_mux);
-    mode_clock <= (not sw_display_mux) and (not sw_sel_alarm);
+    mode_alarm <= sw_sel_alarm and (not sw_display_mux) and (not sw_sel_crono);
+    mode_clock <= (not sw_display_mux) and (not sw_sel_alarm) and (not sw_sel_crono);
 
     -- Botões com debounce e pulso
     bh : Button_Pulse port map (clk => clk, reset => reset, btn_in => btn_hour,
@@ -141,7 +144,7 @@ begin
     bm : Button_Pulse port map (clk => clk, reset => reset, btn_in => btn_min,
                                 pulse => p_min, estado => h_min);
     bf : Button_Pulse port map (clk => clk, reset => reset, btn_in => btn_fast,
-                                pulse => p_fast, estado => open);
+                            pulse => p_fast, estado => open);
 
     -- Encaminhamento: cada pulso vai só para um destino
     w_inc_hour  <= p_hour and mode_clock;
@@ -153,6 +156,7 @@ begin
 
     a_inc_hour  <= p_hour and mode_alarm;
     a_inc_min   <= p_min  and mode_alarm;
+    a_fast_alarm <= p_fast and mode_alarm;
 
     t_clear     <= p_hour and mode_timer;
     t_inc_min   <= p_min  and mode_timer;
@@ -170,16 +174,20 @@ begin
                   wth_set => w_set);
 
     alarm : Alarme
-        port map (clk => clk, reset => reset,
-                  Hour_Tens => h_t, Hour_Units => h_u,
-                  Min_Tens => m_t, Min_Units => m_u,
-                  wth_set => mode_alarm,
-                  Inc_hour => a_inc_hour, Inc_min => a_inc_min,
-                  pulso => pulso_min,
-                  sw_alarm => sw_alarm,
-                  Alarm_out => alarm_out_s,
-                  Hour_Alarm_Tens => ha_t, Hour_Alarm_Units => ha_u,
-                  Min_Alarm_Tens => ma_t, Min_Alarm_Units => ma_u);
+    port map (clk => clk, reset => reset,
+              Hour_Tens => h_t, Hour_Units => h_u,
+              Min_Tens => m_t, Min_Units => m_u,
+              wth_set => mode_alarm,
+              Inc_hour => a_inc_hour, 
+              Inc_min => a_inc_min,
+              Hold_hour => h_hour, 
+              Hold_min => h_min,    
+              btn_fast => a_fast_alarm,
+              pulso => pulso_min,
+              sw_alarm => sw_alarm,
+              Alarm_out => alarm_out_s,
+              Hour_Alarm_Tens => ha_t, Hour_Alarm_Units => ha_u,
+              Min_Alarm_Tens => ma_t, Min_Alarm_Units => ma_u);
 
     temp_inst : Temporizador
         port map (clk => clk, reset => reset,
