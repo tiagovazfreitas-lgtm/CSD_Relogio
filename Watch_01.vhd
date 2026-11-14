@@ -46,7 +46,7 @@ begin
         end if;
     end process;
     
--- Gerar pulso automatico cada 0.25seg
+-- Gerar pulso automatico cada 0.08seg
     process(CLK, Reset)
     begin
         if Reset = '1' then
