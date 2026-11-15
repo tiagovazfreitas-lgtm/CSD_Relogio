@@ -1,0 +1,83 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity tb_alarme is
+end tb_alarme;
+
+architecture sim of tb_alarme is
+
+    signal clk, reset : std_logic := '0';
+    signal hour_tens, hour_units : std_logic_vector(3 downto 0) := "0000";
+    signal min_tens, min_units   : std_logic_vector(3 downto 0) := "0000";
+    signal wth_set, inc_hour, inc_min, pulso, sw_alarm : std_logic := '0';
+    signal alarm_out : std_logic;
+    signal ha_t, ha_u, ma_t, ma_u : std_logic_vector(3 downto 0);
+
+begin
+
+    uut : entity work.Alarme
+        port map (clk => clk, reset => reset,
+                  Hour_Tens => hour_tens, Hour_Units => hour_units,
+                  Min_Tens => min_tens, Min_Units => min_units,
+                  wth_set => wth_set, Inc_hour => inc_hour, Inc_min => inc_min,
+                  pulso => pulso, sw_alarm => sw_alarm,
+                  Alarm_out => alarm_out,
+                  Hour_Alarm_Tens => ha_t, Hour_Alarm_Units => ha_u,
+                  Min_Alarm_Tens => ma_t, Min_Alarm_Units => ma_u);
+
+    clk <= not clk after 5 ns;
+
+    process
+    begin
+        reset <= '1';
+        wait for 50 ns;
+        reset <= '0';
+        wait for 20 ns;
+
+        -- 1) acerto do alarme para 01:02
+        wth_set <= '1';
+        inc_hour <= '1'; wait for 10 ns; inc_hour <= '0'; wait for 20 ns;
+        inc_min <= '1';  wait for 10 ns; inc_min <= '0';  wait for 20 ns;
+        inc_min <= '1';  wait for 10 ns; inc_min <= '0';  wait for 20 ns;
+        assert ha_u = "0001" and ha_t = "0000";
+        assert ma_u = "0010" and ma_t = "0000";
+        wth_set <= '0';
+
+        -- 2) ativar e chegar a hora do alarme (01:01 -> 01:02)
+        hour_units <= "0001";
+        min_units <= "0001";
+        sw_alarm <= '1';
+        wait for 50 ns;
+        assert alarm_out = '0';
+        min_units <= "0010";
+        wait for 30 ns;
+        assert alarm_out = '1';
+
+        -- 3) desligar pelo switch
+        sw_alarm <= '0';
+        wait for 30 ns;
+        assert alarm_out = '0';
+
+        -- 4) voltar a disparar e deixar acabar sozinho
+        min_units <= "0001";
+        wait for 30 ns;
+        sw_alarm <= '1';
+        wait for 30 ns;
+        min_units <= "0010";
+        wait for 30 ns;
+        assert alarm_out = '1';
+
+        for i in 1 to 59 loop
+            pulso <= '1'; wait for 10 ns;
+            pulso <= '0'; wait for 20 ns;
+        end loop;
+        assert alarm_out = '1';
+
+        pulso <= '1'; wait for 10 ns;
+        pulso <= '0'; wait for 30 ns;
+        assert alarm_out = '0';
+
+        wait;
+    end process;
+
+end sim;
